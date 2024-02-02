@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Simple Custom Directions Input Panel - Bing Maps Samples</title>
+
+    <meta charset="utf-8" />
+	<link rel="shortcut icon" href="/favicon.ico"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <meta name="description" content="This sample shows how to create a simple custom input panel for direction calculations." />
+    <meta name="keywords" content="Microsoft maps, map, gis, API, SDK, Bing, Bing Maps" />
+    <meta name="author" content="Microsoft Bing Maps" />
+    <meta name="screenshot" content="screenshot.jpg" />
+    
+    <script>
+    var map, directionsManager;
+
+    function GetMap()
+    {
+        map = new Microsoft.Maps.Map('#myMap', {});
+
+        //Load the directions module.
+        Microsoft.Maps.loadModule('Microsoft.Maps.Directions', function () {
+            //Create an instance of the directions manager.
+            directionsManager = new Microsoft.Maps.Directions.DirectionsManager(map);
+
+            //Specify where to display the route instructions.
+            directionsManager.setRenderOptions({ itineraryContainer: '#directionsItinerary' });
+
+            //Specify the where to display the input panel
+            directionsManager.showInputPanel('directionsPanel');
+        });
+    }
+
+    function GetDirections() {
+        //Clear any previously calculated directions.
+        directionsManager.clearAll();
+        directionsManager.clearDisplay();
+
+        //Create waypoints to route between.
+        var start = new Microsoft.Maps.Directions.Waypoint({ location: new Microsoft.Maps.Location(parseFloat(document.getElementById('fromLat').value), parseFloat(document.getElementById('fromLon').value)) });
+        directionsManager.addWaypoint(start);
+
+        var end = new Microsoft.Maps.Directions.Waypoint({ location: new Microsoft.Maps.Location(parseFloat(document.getElementById('toLat').value), parseFloat(document.getElementById('toLon').value)) });
+        directionsManager.addWaypoint(end);
+
+        //Calculate directions.
+        directionsManager.calculateDirections();
+    }
+    </script>
+    
+</head>
+<body>
+    <div id="myMap" style="position:relative;width:100%;min-width:290px;height:600px;background-color:gray"></div>
+
+    <div style="margin-top:10px;">
+        From Latitude: <input id="fromLat" type="text" value="47.673988"/>
+        From Longitude: <input id="fromLon" type="text" value="-122.121513"/>
+        To Latitude: <input id="toLat" type="text" value="47.615313"/>
+        To Longitude: <input id="toLon" type="text" value="-122.190147"/>
+        <input type="button" onclick="GetDirections()" value="Calculate" />
+    </div>    
+
+    <fieldset style="width:800px;margin-top:10px;">
+        <legend>Simple Custom Directions Input Panel Sample</legend>
+        This sample shows how to create a simple custom input panel for direction calculations.
+    </fieldset>
+
+    <script>
+        // Dynamic load the Bing Maps Key and Script
+        // Get your own Bing Maps key at https://www.microsoft.com/maps
+        (async () => {
+            let script = document.createElement("script");
+            let bingKey = "Ai18k10yj5bIY4HwX_qiV7f85RknOZ7Z7auMROzTbqI3_86YicjhNlsnCbjB-xYU";
+            script.setAttribute("src", `https://www.bing.com/api/maps/mapcontrol?callback=GetMap&key=${bingKey}`);
+            document.body.appendChild(script);
+        })();
+    </script>
+</body>
+</html>
