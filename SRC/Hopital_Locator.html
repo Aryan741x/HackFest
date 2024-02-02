@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Bing Maps Api</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" media="screen" href="estilo.css">
+</head>
+<body>
+    <header>
+        <h1>Bing Maps Api</h1>
+    </header>
+    <main>
+        <div class="options">
+            <input class="search_input" placeholder="Search">
+            <button class="search_btn" onclick="findNearbyHospitals()">Find Nearby Hospitals</button>
+        </div>
+        <div id="map"></div>
+    </main>
+    <footer>
+        <p class="copyright">2022 - LC Codes</p>
+    </footer>
+    <script>
+        "use strict";
+
+        const searchInput = document.querySelector(".search_input");
+        const searchBtn = document.querySelector(".search_btn");
+
+        let map, searchManager, layer;
+
+        searchBtn.addEventListener("click", () => {
+            map.entities.clear();
+            geocodeQuery(searchInput.value);
+        });
+
+        function findNearbyHospitals() {
+            getHospitalsInView();
+        }
+
+        function getMap() {
+            map = new Microsoft.Maps.Map('#map', {
+                credentials: 'Ai18k10yj5bIY4HwX_qiV7f85RknOZ7Z7auMROzTbqI3_86YicjhNlsnCbjB-xYU',
+            });
+
+            // Create a layer for the results.
+            layer = new Microsoft.Maps.Layer();
+            map.layers.insert(layer);
+
+            // Add a click event to the layer to show an infobox when a pushpin is clicked.
+            Microsoft.Maps.Events.addHandler(layer, 'click', function (e) {
+                var m = e.target.metadata;
+
+                // Use infobox to display information about the location.
+                const infobox = new Microsoft.Maps.Infobox(e.target.getLocation(), {
+                    title: m.DisplayName,
+                    description: m.AddressLine + ', ' + m.Locality,
+                    visible: true
+                });
+
+                map.entities.push(infobox);
+            });
+
+            // Load the Bing Spatial Data Services module.
+            Microsoft.Maps.loadModule('Microsoft.Maps.SpatialDataService', function () {
+                // Add an event handler for when the map moves.
+                Microsoft.Maps.Events.addHandler(map, 'viewchangeend', getNearByLocations);
+
+                // Trigger an initial search.
+                getNearByLocations();
+            });
+        }
+
+        function getNearByLocations() {
+            // Remove any existing data from the layer.
+            layer.clear();
+
+            // Create a query to get nearby data (Gas Stations).
+            var queryOptions = {
+                queryUrl: 'https://spatial.virtualearth.net/REST/v1/data/Microsoft/PointsOfInterest',
+                spatialFilter: {
+                    spatialFilterType: 'nearby',
+                    location: map.getCenter(),
+                    radius: 25
+                },
+                filter: new Microsoft.Maps.SpatialDataService.Filter('EntityTypeID', 'eq', 8060) // Filter to retrieve Gas Stations.
+            };
+
+            // Process the query.
+            Microsoft.Maps.SpatialDataService.QueryAPIManager.search(queryOptions, map, function (data) {
+                // Add results to the layer.
+                layer.add(data);
+                console.log(data);
+            });
+        }
+
+        function geocodeQuery(query) {
+            if (!searchManager) {
+                Microsoft.Maps.loadModule('Microsoft.Maps.Search', function () {
+                    searchManager = new Microsoft.Maps.Search.SearchManager(map);
+                    geocodeQuery(query);
+                });
+            } else {
+                let searchRequest = {
+                    where: query,
+                    callback: function (r) {
+                        if (r && r.results && r.results.length > 0) {
+                            var pin = new Microsoft.Maps.Pushpin(r.results[0].location);
+                            map.entities.push(pin);
+
+                            map.setView({ bounds: r.results[0].bestView });
+                        }
+                    },
+                    errorCallback: function (e) {
+                        alert("No results found.");
+                    },
+                };
+                searchManager.geocode(searchRequest);
+            }
+        }
+
+        // Dynamic load the Bing Maps Key and Script
+        (async () => {
+            let script = document.createElement("script");
+            script.setAttribute(
+                "src",
+                `https://www.bing.com/api/maps/mapcontrol?callback=getMap&key=Ai18k10yj5bIY4HwX_qiV7f85RknOZ7Z7auMROzTbqI3_86YicjhNlsnCbjB-xYU`
+            );
+            document.body.appendChild(script);
+        })();
+    </script>
+</body>
+</html>
