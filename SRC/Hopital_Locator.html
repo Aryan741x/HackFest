@@ -6,6 +6,56 @@
     <title>Bing Maps Api</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" type="text/css" media="screen" href="estilo.css">
+    <style>
+        #map {
+            height: 600px;
+        }
+
+        .infobox-container {
+            background-color: rgb(226, 59, 59);
+            padding: 10px;
+            height:150px;
+            width:150px;
+            border: 3px solid #c39797;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .infobox-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .infobox-description {
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .infobox-latlong {
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .infobox-link {
+            background-color: blue;
+            color: white;
+            text-decoration: none;
+            padding: 8px;
+            display: block;
+            text-align: center;
+            border-radius: 5px;
+        }
+
+        .infobox-link:hover {
+            background-color: darkblue;
+        }
+
+        .booked {
+            background-color: gray;
+            cursor: not-allowed;
+        }
+    </style>
 </head>
 <body>
     <header>
@@ -22,112 +72,148 @@
         <p class="copyright">2022 - LC Codes</p>
     </footer>
     <script>
-        "use strict";
+      "use strict";
+  
+      const searchInput = document.querySelector(".search_input");
+      const searchBtn = document.querySelector(".search_btn");
+  
+      let map, searchManager, layer, infobox;
+      let selectedLocation = null;
+  
+      searchBtn.addEventListener("click", () => {
+          map.entities.clear();
+          geocodeQuery(searchInput.value);
+      });
+  
+      function findNearbyHospitals() {
+          getHospitalsInView();
+      }
 
-        const searchInput = document.querySelector(".search_input");
-        const searchBtn = document.querySelector(".search_btn");
+      function createBookingLink(name, address, location) {
+          const container = document.createElement("div");
+          container.classList.add("infobox-container");
+  
+          const titleElement = document.createElement("div");
+          titleElement.classList.add("infobox-title");
+          titleElement.textContent = name;
+  
+          const descriptionElement = document.createElement("div");
+          descriptionElement.classList.add("infobox-description");
+          descriptionElement.textContent = address;
+  
+          const latLongElement = document.createElement("div");
+          latLongElement.classList.add("infobox-latlong");
+          latLongElement.textContent = "Latitude: " + location.latitude.toFixed(6) + ", Longitude: " + location.longitude.toFixed(6);
+  
+          const link = document.createElement("a");
+          link.textContent = "Book Your Ambulance";
+          link.classList.add("infobox-link");
+          // Modify the href attribute to route.html and pass parameters.
+          link.href = `route.html?latitude=${location.latitude}&longitude=${location.longitude}`;
+  
+          container.appendChild(titleElement);
+          container.appendChild(descriptionElement);
+          container.appendChild(latLongElement);
+          container.appendChild(link);
+  
+          document.body.appendChild(container);
+  
+          return container.outerHTML;
+      }
 
-        let map, searchManager, layer;
+      function getMap() {
+          map = new Microsoft.Maps.Map('#map', {
+              credentials: 'Ai18k10yj5bIY4HwX_qiV7f85RknOZ7Z7auMROzTbqI3_86YicjhNlsnCbjB-xYU',
+          });
+  
+          layer = new Microsoft.Maps.Layer();
+          map.layers.insert(layer);
+  
+          infobox = new Microsoft.Maps.Infobox(map.getCenter(), {
+              visible: false,
+              autoAlignment: true,
+              showPointer: true,
+          });
+          map.entities.push(infobox);
+  
+          Microsoft.Maps.Events.addHandler(layer, 'click', function (e) {
+              var m = e.target.metadata;
+  
+              infobox.setOptions({
+                  title: m.DisplayName,
+                  description: m.AddressLine + ', ' + m.Locality,
+                  htmlContent: createBookingLink(m.DisplayName, m.AddressLine + ', ' + m.Locality, e.target.getLocation()),
+                  location: e.target.getLocation(),
+                  visible: !infobox.getVisible(),
+              });
+  
+              selectedLocation = {
+                  name: m.DisplayName,
+                  address: m.AddressLine + ', ' + m.Locality,
+                  location: e.target.getLocation()
+              };
+          });
+  
+          Microsoft.Maps.loadModule('Microsoft.Maps.SpatialDataService', function () {
+              Microsoft.Maps.Events.addHandler(map, 'viewchangeend', getNearByLocations);
+              getNearByLocations();
+          });
+      }
+  
+      function getNearByLocations() {
+          layer.clear();
+  
+          var queryOptions = {
+              queryUrl: 'https://spatial.virtualearth.net/REST/v1/data/Microsoft/PointsOfInterest',
+              spatialFilter: {
+                  spatialFilterType: 'nearby',
+                  location: map.getCenter(),
+                  radius: 25
+              },
+              filter: new Microsoft.Maps.SpatialDataService.Filter('EntityTypeID', 'eq', 8060)
+          };
+  
+          Microsoft.Maps.SpatialDataService.QueryAPIManager.search(queryOptions, map, function (data) {
+              layer.add(data);
+          });
+      }
+  
+      function geocodeQuery(query) {
+          if (!searchManager) {
+              Microsoft.Maps.loadModule('Microsoft.Maps.Search', function () {
+                  searchManager = new Microsoft.Maps.Search.SearchManager(map);
+                  geocodeQuery(query);
+              });
+          } else {
+              let searchRequest = {
+                  where: query,
+                  callback: function (r) {
+                      if (r && r.results && r.results.length > 0) {
+                          var pin = new Microsoft.Maps.Pushpin(r.results[0].location);
+                          pin.metadata = r.results[0];
+                          map.entities.push(pin);
+  
+                          map.setView({ bounds: r.results[0].bestView });
+                      }
+                  },
+                  errorCallback: function (e) {
+                      alert("No results found.");
+                  },
+              };
+              searchManager.geocode(searchRequest);
+          }
+      }
 
-        searchBtn.addEventListener("click", () => {
-            map.entities.clear();
-            geocodeQuery(searchInput.value);
-        });
-
-        function findNearbyHospitals() {
-            getHospitalsInView();
-        }
-
-        function getMap() {
-            map = new Microsoft.Maps.Map('#map', {
-                credentials: 'Ai18k10yj5bIY4HwX_qiV7f85RknOZ7Z7auMROzTbqI3_86YicjhNlsnCbjB-xYU',
-            });
-
-            // Create a layer for the results.
-            layer = new Microsoft.Maps.Layer();
-            map.layers.insert(layer);
-
-            // Add a click event to the layer to show an infobox when a pushpin is clicked.
-            Microsoft.Maps.Events.addHandler(layer, 'click', function (e) {
-                var m = e.target.metadata;
-
-                // Use infobox to display information about the location.
-                const infobox = new Microsoft.Maps.Infobox(e.target.getLocation(), {
-                    title: m.DisplayName,
-                    description: m.AddressLine + ', ' + m.Locality,
-                    visible: true
-                });
-
-                map.entities.push(infobox);
-            });
-
-            // Load the Bing Spatial Data Services module.
-            Microsoft.Maps.loadModule('Microsoft.Maps.SpatialDataService', function () {
-                // Add an event handler for when the map moves.
-                Microsoft.Maps.Events.addHandler(map, 'viewchangeend', getNearByLocations);
-
-                // Trigger an initial search.
-                getNearByLocations();
-            });
-        }
-
-        function getNearByLocations() {
-            // Remove any existing data from the layer.
-            layer.clear();
-
-            // Create a query to get nearby data (Gas Stations).
-            var queryOptions = {
-                queryUrl: 'https://spatial.virtualearth.net/REST/v1/data/Microsoft/PointsOfInterest',
-                spatialFilter: {
-                    spatialFilterType: 'nearby',
-                    location: map.getCenter(),
-                    radius: 25
-                },
-                filter: new Microsoft.Maps.SpatialDataService.Filter('EntityTypeID', 'eq', 8060) // Filter to retrieve Gas Stations.
-            };
-
-            // Process the query.
-            Microsoft.Maps.SpatialDataService.QueryAPIManager.search(queryOptions, map, function (data) {
-                // Add results to the layer.
-                layer.add(data);
-                console.log(data);
-            });
-        }
-
-        function geocodeQuery(query) {
-            if (!searchManager) {
-                Microsoft.Maps.loadModule('Microsoft.Maps.Search', function () {
-                    searchManager = new Microsoft.Maps.Search.SearchManager(map);
-                    geocodeQuery(query);
-                });
-            } else {
-                let searchRequest = {
-                    where: query,
-                    callback: function (r) {
-                        if (r && r.results && r.results.length > 0) {
-                            var pin = new Microsoft.Maps.Pushpin(r.results[0].location);
-                            map.entities.push(pin);
-
-                            map.setView({ bounds: r.results[0].bestView });
-                        }
-                    },
-                    errorCallback: function (e) {
-                        alert("No results found.");
-                    },
-                };
-                searchManager.geocode(searchRequest);
-            }
-        }
-
-        // Dynamic load the Bing Maps Key and Script
-        (async () => {
-            let script = document.createElement("script");
-            script.setAttribute(
-                "src",
-                `https://www.bing.com/api/maps/mapcontrol?callback=getMap&key=Ai18k10yj5bIY4HwX_qiV7f85RknOZ7Z7auMROzTbqI3_86YicjhNlsnCbjB-xYU`
-            );
-            document.body.appendChild(script);
-        })();
-    </script>
+      (async () => {
+          let script = document.createElement("script");
+          script.setAttribute(
+              "src",
+              `https://www.bing.com/api/maps/mapcontrol?callback=getMap&key=YourBingMapsAPIKey`
+          );
+          document.body.appendChild(script);
+      })();
+      
+  </script>
+  
 </body>
 </html>
